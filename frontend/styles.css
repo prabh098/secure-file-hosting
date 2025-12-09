@@ -1,0 +1,20 @@
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;margin:0;padding:0;background:#0b1220;color:#e7ecf3}
+header,footer{padding:16px 24px;background:#0f172a;color:#e7ecf3}
+main{max-width:900px;margin:24px auto;padding:0 16px}
+.card{background:#111827;border:1px solid #1f2937;border-radius:16px;padding:16px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+h1{font-size:28px;margin:0 0 8px}
+h2{font-size:20px;margin:0 0 12px}
+label{display:block;margin:8px 0 4px}
+input,select,button{padding:10px 12px;border-radius:10px;border:1px solid #374151;background:#0b1220;color:#e7ecf3}
+button{cursor:pointer}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+a{color:#93c5fd;text-decoration:none}
+a:hover{text-decoration:underline}
+.small{opacity:.8;font-size:12px}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{border-bottom:1px solid #1f2937;padding:10px;text-align:left}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #374151;font-size:12px}
+.badge.public{background:#003b2b;border-color:#065f46}
+.badge.private{background:#3b0c0c;border-color:#7f1d1d}
+.actions button{margin-right:8px}
+nav a{margin-right:12px}

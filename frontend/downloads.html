@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Downloads</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+<header>
+  <nav>
+    <a href="./index.html">Home</a>
+    <a href="./register.html">Register</a>
+    <a href="./login.html">Login</a>
+    <a href="./upload.html">Upload</a>
+  </nav>
+</header>
+<main>
+  <div class="card">
+    <h1>Public Downloads</h1>
+    <table class="table">
+      <thead><tr><th>Name</th><th>Size</th><th>Uploaded</th><th>Action</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <p class="small">Anyone can download public files. Private files are accessible only via a unique share link from the owner.</p>
+  </div>
+</main>
+<script src="./auth.js"></script>
+<script>
+async function load(){
+  const res = await fetch(AppAuth.API_BASE + "/public-files");
+  const data = await res.json();
+  const tb = document.getElementById("rows");
+  tb.innerHTML = "";
+  (data.files||[]).forEach(f=>{
+    const tr = document.createElement("tr");
+    const sizeKB = (f.size/1024).toFixed(1)+" KB";
+    const when = new Date(f.uploaded_at).toLocaleString();
+    tr.innerHTML = `<td>${f.originalName}</td><td>${sizeKB}</td><td>${when}</td>
+      <td class="actions"><a href="${AppAuth.API_BASE}/files/${f._id}/download" target="_blank">Download</a></td>`;
+    tb.appendChild(tr);
+  });
+}
+load();
+</script>
+</body>
+</html>
