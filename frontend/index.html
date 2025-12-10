@@ -1,27 +1,301 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Secure File Hosting</title>
-  <link rel="stylesheet" href="./styles.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Secure File Hosting — Single Page</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;margin:0;padding:0;background:#0b1220;color:#e7ecf3}
+    header,footer{padding:16px 24px;background:#0f172a;color:#e7ecf3}
+    main{max-width:1000px;margin:24px auto;padding:0 16px}
+    .card{background:#111827;border:1px solid #1f2937;border-radius:16px;padding:16px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+    h1{font-size:28px;margin:0 0 8px}
+    h2{font-size:22px;margin:4px 0 12px}
+    label{display:block;margin:8px 0 4px}
+    input,select,button{padding:10px 12px;border-radius:10px;border:1px solid #374151;background:#0b1220;color:#e7ecf3}
+    button{cursor:pointer}
+    nav a, nav button{margin-right:12px}
+    a{color:#93c5fd;text-decoration:none}
+    a:hover{text-decoration:underline}
+    .small{opacity:.8;font-size:12px}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .table{width:100%;border-collapse:collapse}
+    .table th,.table td{border-bottom:1px solid #1f2937;padding:10px;text-align:left}
+    .badge{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #374151;font-size:12px}
+    .badge.public{background:#003b2b;border-color:#065f46}
+    .badge.private{background:#3b0c0c;border-color:#7f1d1d}
+    .hidden{display:none !important}
+    .right{float:right}
+    .mt-2{margin-top:8px}
+    .mt-4{margin-top:16px}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+  </style>
 </head>
 <body>
   <header>
     <nav>
-      <a href="./register.html">Register</a>
-      <a href="./login.html">Login</a>
-      <a href="./upload.html">Upload</a>
-      <a href="./my-files.html">My Files</a>
-      <a href="./downloads.html">Downloads</a>
+      <button onclick="navigate('home')">Home</button>
+      <button onclick="navigate('register')">Register</button>
+      <button onclick="navigate('login')" id="nav-login">Login</button>
+      <button onclick="navigate('upload')" id="nav-upload" class="hidden">Upload</button>
+      <button onclick="navigate('myfiles')" id="nav-myfiles" class="hidden">My Files</button>
+      <button onclick="navigate('downloads')">Downloads</button>
+      <button class="right hidden" id="nav-logout" onclick="logout()">Logout</button>
     </nav>
   </header>
+
   <main>
-    <div class="card">
+    <!-- Home -->
+    <section id="view-home" class="card">
       <h1>Secure File Hosting</h1>
-      <p>Welcome! Use the navigation above to register, log in, upload files, see your files, or browse public downloads.</p>
-      <p class="small">Keep your token safe. Clear it via the logout button present on authenticated pages.</p>
-    </div>
+      <p>One-page app version. Use the buttons above to register, log in, upload PDF/MP4 files (public or private), manage your files, and browse public downloads.</p>
+      <ul class="small">
+        <li>Backend API should be running at <span class="mono">http://localhost:5000</span></li>
+        <li>Allowed types: <b>PDF</b> and <b>MP4</b>. Max size: <b>20 MB</b> (configurable on server).</li>
+      </ul>
+      <div id="health" class="small mono"></div>
+    </section>
+
+    <!-- Register -->
+    <section id="view-register" class="card hidden">
+      <h2>Create an account</h2>
+      <form id="form-register">
+        <label>Username</label><input id="reg-username" required />
+        <label>Email</label><input id="reg-email" type="email" required />
+        <label>Password</label><input id="reg-password" type="password" required />
+        <div class="row mt-2"><button type="submit">Register</button></div>
+      </form>
+      <pre id="out-register" class="small mono mt-2"></pre>
+    </section>
+
+    <!-- Login -->
+    <section id="view-login" class="card hidden">
+      <h2>Login</h2>
+      <form id="form-login">
+        <label>Email</label><input id="login-email" type="email" required />
+        <label>Password</label><input id="login-password" type="password" required />
+        <div class="row mt-2"><button type="submit">Login</button></div>
+      </form>
+      <pre id="out-login" class="small mono mt-2"></pre>
+    </section>
+
+    <!-- Upload -->
+    <section id="view-upload" class="card hidden">
+      <h2>Upload a file</h2>
+      <form id="form-upload">
+        <label>File (PDF or MP4, max 20MB)</label>
+        <input id="up-file" type="file" accept=".pdf,.mp4" required />
+        <label class="mt-2">Privacy</label>
+        <select id="up-privacy">
+          <option value="public">Public</option>
+          <option value="private">Private (share link)</option>
+        </select>
+        <div class="row mt-2">
+          <button type="submit">Upload</button>
+        </div>
+      </form>
+      <pre id="out-upload" class="small mono mt-2"></pre>
+    </section>
+
+    <!-- My Files -->
+    <section id="view-myfiles" class="card hidden">
+      <h2>My Files</h2>
+      <table class="table">
+        <thead><tr><th>Name</th><th>Size</th><th>Privacy</th><th>Uploaded</th><th>Share</th><th>Actions</th></tr></thead>
+        <tbody id="tb-myfiles"></tbody>
+      </table>
+      <pre id="out-myfiles" class="small mono mt-2"></pre>
+    </section>
+
+    <!-- Downloads (Public) -->
+    <section id="view-downloads" class="card hidden">
+      <h2>Public Downloads</h2>
+      <table class="table">
+        <thead><tr><th>Name</th><th>Size</th><th>Uploaded</th><th>Action</th></tr></thead>
+        <tbody id="tb-downloads"></tbody>
+      </table>
+      <pre id="out-downloads" class="small mono mt-2"></pre>
+    </section>
   </main>
+
   <footer><span class="small">&copy; Demo</span></footer>
+
+  <script>
+    // ===== Config & token helpers =====
+    const API_BASE = "http://localhost:5000/api";
+    const TOKEN_KEY = "sfh_token";
+    const getToken = () => localStorage.getItem(TOKEN_KEY);
+    const setToken = (t) => localStorage.setItem(TOKEN_KEY, t);
+    const clearToken = () => localStorage.removeItem(TOKEN_KEY);
+    const authHeader = () => (getToken() ? { "Authorization": "Bearer " + getToken() } : {});
+
+    // ===== Navigation =====
+    function setAuthUI(){
+      const loggedIn = !!getToken();
+      document.getElementById("nav-login").classList.toggle("hidden", loggedIn);
+      document.getElementById("nav-upload").classList.toggle("hidden", !loggedIn);
+      document.getElementById("nav-myfiles").classList.toggle("hidden", !loggedIn);
+      document.getElementById("nav-logout").classList.toggle("hidden", !loggedIn);
+    }
+
+    function navigate(view){
+      document.querySelectorAll("main section").forEach(s => s.classList.add("hidden"));
+      document.getElementById("view-" + view).classList.remove("hidden");
+      if(view === "myfiles") loadMyFiles();
+      if(view === "downloads") loadDownloads();
+      if(view === "home") pingHealth();
+    }
+
+    function logout(){
+      clearToken();
+      setAuthUI();
+      navigate("home");
+    }
+
+    // ===== Home health check =====
+    async function pingHealth(){
+      try{
+        const r = await fetch(API_BASE + "/health");
+        const d = await r.json();
+        document.getElementById("health").textContent = JSON.stringify(d, null, 2);
+      }catch(e){
+        document.getElementById("health").textContent = "Cannot reach backend at " + API_BASE;
+      }
+    }
+
+    // ===== Register =====
+    document.getElementById("form-register").addEventListener("submit", async (e)=>{
+      e.preventDefault();
+      const body = {
+        username: document.getElementById("reg-username").value.trim(),
+        email: document.getElementById("reg-email").value.trim(),
+        password: document.getElementById("reg-password").value
+      };
+      const res = await fetch(API_BASE + "/register", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+      });
+      const data = await res.json().catch(()=>({}));
+      document.getElementById("out-register").textContent = JSON.stringify(data, null, 2);
+      if(res.ok){
+        alert("Registered! Please login.");
+        navigate("login");
+      }else{
+        alert(data.error || "Registration failed");
+      }
+    });
+
+    // ===== Login =====
+    document.getElementById("form-login").addEventListener("submit", async (e)=>{
+      e.preventDefault();
+      const body = {
+        email: document.getElementById("login-email").value.trim(),
+        password: document.getElementById("login-password").value
+      };
+      const res = await fetch(API_BASE + "/login", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+      });
+      const data = await res.json().catch(()=>({}));
+      document.getElementById("out-login").textContent = JSON.stringify(data, null, 2);
+      if(res.ok && data.token){
+        setToken(data.token);
+        setAuthUI();
+        navigate("upload");
+      } else {
+        alert(data.error || "Login failed");
+      }
+    });
+
+    // ===== Upload =====
+    document.getElementById("form-upload").addEventListener("submit", async (e)=>{
+      e.preventDefault();
+      const f = document.getElementById("up-file").files[0];
+      if(!f) return alert("Pick a file.");
+      const privacy = document.getElementById("up-privacy").value;
+      const fd = new FormData();
+      fd.append("file", f);
+      const res = await fetch(API_BASE + "/upload?privacy=" + encodeURIComponent(privacy), {
+        method: "POST", headers: { ...authHeader() }, body: fd
+      });
+      const data = await res.json().catch(()=>({}));
+      document.getElementById("out-upload").textContent = JSON.stringify(data, null, 2);
+      if(res.ok) alert("Uploaded!");
+      else alert(data.error || "Upload failed");
+    });
+
+    // ===== My Files =====
+    async function loadMyFiles(){
+      const tb = document.getElementById("tb-myfiles");
+      tb.innerHTML = "";
+      const res = await fetch(API_BASE + "/my-files", { headers: { ...authHeader() } });
+      const data = await res.json().catch(()=>({ files: [] }));
+      document.getElementById("out-myfiles").textContent = JSON.stringify(data, null, 2);
+      (data.files || []).forEach(f => {
+        const tr = document.createElement("tr");
+        const sizeKB = (f.size/1024).toFixed(1)+" KB";
+        const when = new Date(f.uploaded_at).toLocaleString();
+        const share = f.shareLink ? '<a href="' + API_BASE + f.shareLink + '" target="_blank">copy link</a>' : "-";
+        tr.innerHTML = `
+          <td>${f.originalName}</td>
+          <td>${sizeKB}</td>
+          <td><span class="badge ${f.privacy}">${f.privacy}</span></td>
+          <td>${when}</td>
+          <td>${share}</td>
+          <td class="actions">
+            <button data-id="${f.id}" class="dl">Download</button>
+            <button data-id="${f.id}" class="rm">Delete</button>
+          </td>`;
+        tb.appendChild(tr);
+      });
+
+      // Bind actions
+      document.querySelectorAll(".dl").forEach(btn => btn.addEventListener("click", async (e)=>{
+        const id = e.target.getAttribute("data-id");
+        const res = await fetch(API_BASE + "/files/" + id + "/download", { headers: { ...authHeader() } });
+        if(!res.ok){ const d = await res.json().catch(()=>({})); return alert(d.error||"Download blocked"); }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }));
+
+      document.querySelectorAll(".rm").forEach(btn => btn.addEventListener("click", async (e)=>{
+        const id = e.target.getAttribute("data-id");
+        if(!confirm("Delete this file?")) return;
+        const res = await fetch(API_BASE + "/files/" + id, { method:"DELETE", headers: { ...authHeader() } });
+        const d = await res.json().catch(()=>({}));
+        if(res.ok){ loadMyFiles(); } else { alert(d.error||"Delete failed"); }
+      }));
+    }
+
+    // ===== Downloads =====
+    async function loadDownloads(){
+      const tb = document.getElementById("tb-downloads");
+      tb.innerHTML = "";
+      const res = await fetch(API_BASE + "/public-files");
+      const data = await res.json().catch(()=>({ files: [] }));
+      document.getElementById("out-downloads").textContent = JSON.stringify(data, null, 2);
+      (data.files || []).forEach(f => {
+        const tr = document.createElement("tr");
+        const sizeKB = (f.size/1024).toFixed(1)+" KB";
+        const when = new Date(f.uploaded_at).toLocaleString();
+        tr.innerHTML = `
+          <td>${f.originalName}</td>
+          <td>${sizeKB}</td>
+          <td>${when}</td>
+          <td class="actions"><a href="${API_BASE}/files/${f._id}/download" target="_blank">Download</a></td>`;
+        tb.appendChild(tr);
+      });
+    }
+
+    // ===== Init =====
+    setAuthUI();
+    navigate("home");
+    pingHealth();
+  </script>
 </body>
 </html>
