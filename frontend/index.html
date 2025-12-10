@@ -18,6 +18,9 @@
     a{color:#93c5fd;text-decoration:none}
     a:hover{text-decoration:underline}
     .small{opacity:.8;font-size:12px}
+    .muted{opacity:.7}
+    .warn{color:#fca5a5}
+    .ok{color:#86efac}
     .row{display:flex;gap:12px;flex-wrap:wrap}
     .table{width:100%;border-collapse:collapse}
     .table th,.table td{border-bottom:1px solid #1f2937;padding:10px;text-align:left}
@@ -35,11 +38,11 @@
   <header>
     <nav>
       <button onclick="navigate('home')">Home</button>
+      <button onclick="navigate('files')">Files</button> <!-- public listing for everyone -->
       <button onclick="navigate('register')">Register</button>
       <button onclick="navigate('login')" id="nav-login">Login</button>
       <button onclick="navigate('upload')" id="nav-upload" class="hidden">Upload</button>
       <button onclick="navigate('myfiles')" id="nav-myfiles" class="hidden">My Files</button>
-      <button onclick="navigate('downloads')">Downloads</button>
       <button class="right hidden" id="nav-logout" onclick="logout()">Logout</button>
     </nav>
   </header>
@@ -48,12 +51,24 @@
     <!-- Home -->
     <section id="view-home" class="card">
       <h1>Secure File Hosting</h1>
-      <p>One-page app version. Use the buttons above to register, log in, upload PDF/MP4 files (public or private), manage your files, and browse public downloads.</p>
+      <p>Implements access control exactly as required:</p>
       <ul class="small">
-        <li>Backend API should be running at <span class="mono">http://localhost:5000</span></li>
-        <li>Allowed types: <b>PDF</b> and <b>MP4</b>. Max size: <b>20 MB</b> (configurable on server).</li>
+        <li><b>Files</b>: Shows <u>public files</u> for everyone; anyone can download.</li>
+        <li><b>My Files</b>: Shows <u>only your uploads</u> after login; you can Download/Delete.</li>
+        <li>Private files are never listed publicly; they are accessible via a unique share link.</li>
+        <li>Backend API: <span class="mono">http://localhost:5000</span></li>
       </ul>
       <div id="health" class="small mono"></div>
+    </section>
+
+    <!-- Files (Public Listing) -->
+    <section id="view-files" class="card hidden">
+      <h2>Files (Public)</h2>
+      <table class="table">
+        <thead><tr><th>Name</th><th>Size</th><th>Uploaded</th><th>Action</th></tr></thead>
+        <tbody id="tb-files"></tbody>
+      </table>
+      <pre id="out-files" class="small mono mt-2"></pre>
     </section>
 
     <!-- Register -->
@@ -62,7 +77,9 @@
       <form id="form-register">
         <label>Username</label><input id="reg-username" required />
         <label>Email</label><input id="reg-email" type="email" required />
-        <label>Password</label><input id="reg-password" type="password" required />
+        <label>Password</label><input id="reg-password" type="password" minlength="8" required />
+        <div class="small muted" id="reg-pass-hint">Tip: Use a <b>long passphrase</b> (e.g., <b>8+ words</b>) with mixed case, numbers, and symbols.</div>
+        <div class="small" id="reg-pass-strength"></div>
         <div class="row mt-2"><button type="submit">Register</button></div>
       </form>
       <pre id="out-register" class="small mono mt-2"></pre>
@@ -74,6 +91,7 @@
       <form id="form-login">
         <label>Email</label><input id="login-email" type="email" required />
         <label>Password</label><input id="login-password" type="password" required />
+        <div class="small muted">Tip: For better security, use a <b>long passphrase</b> (e.g., <b>8+ words</b>). If your password is weak, consider updating it later.</div>
         <div class="row mt-2"><button type="submit">Login</button></div>
       </form>
       <pre id="out-login" class="small mono mt-2"></pre>
@@ -83,8 +101,9 @@
     <section id="view-upload" class="card hidden">
       <h2>Upload a file</h2>
       <form id="form-upload">
-        <label>File (PDF or MP4, max 20MB)</label>
+        <label>File (PDF or MP4, max <span id="max-mb">20</span>MB)</label>
         <input id="up-file" type="file" accept=".pdf,.mp4" required />
+        <div class="small" id="file-size-hint"></div>
         <label class="mt-2">Privacy</label>
         <select id="up-privacy">
           <option value="public">Public</option>
@@ -97,7 +116,7 @@
       <pre id="out-upload" class="small mono mt-2"></pre>
     </section>
 
-    <!-- My Files -->
+    <!-- My Files (Owner Listing) -->
     <section id="view-myfiles" class="card hidden">
       <h2>My Files</h2>
       <table class="table">
@@ -105,16 +124,6 @@
         <tbody id="tb-myfiles"></tbody>
       </table>
       <pre id="out-myfiles" class="small mono mt-2"></pre>
-    </section>
-
-    <!-- Downloads (Public) -->
-    <section id="view-downloads" class="card hidden">
-      <h2>Public Downloads</h2>
-      <table class="table">
-        <thead><tr><th>Name</th><th>Size</th><th>Uploaded</th><th>Action</th></tr></thead>
-        <tbody id="tb-downloads"></tbody>
-      </table>
-      <pre id="out-downloads" class="small mono mt-2"></pre>
     </section>
   </main>
 
@@ -124,12 +133,14 @@
     // ===== Config & token helpers =====
     const API_BASE = "http://localhost:5000/api";
     const TOKEN_KEY = "sfh_token";
+    const MAX_FILE_MB = 20; // mirror server default; change if .env differs
+    document.getElementById("max-mb").textContent = MAX_FILE_MB;
     const getToken = () => localStorage.getItem(TOKEN_KEY);
     const setToken = (t) => localStorage.setItem(TOKEN_KEY, t);
     const clearToken = () => localStorage.removeItem(TOKEN_KEY);
     const authHeader = () => (getToken() ? { "Authorization": "Bearer " + getToken() } : {});
 
-    // ===== Navigation =====
+    // ===== Navigation & UI auth state =====
     function setAuthUI(){
       const loggedIn = !!getToken();
       document.getElementById("nav-login").classList.toggle("hidden", loggedIn);
@@ -142,7 +153,7 @@
       document.querySelectorAll("main section").forEach(s => s.classList.add("hidden"));
       document.getElementById("view-" + view).classList.remove("hidden");
       if(view === "myfiles") loadMyFiles();
-      if(view === "downloads") loadDownloads();
+      if(view === "files") loadPublicFiles();
       if(view === "home") pingHealth();
     }
 
@@ -152,7 +163,7 @@
       navigate("home");
     }
 
-    // ===== Home health check =====
+    // ===== Health =====
     async function pingHealth(){
       try{
         const r = await fetch(API_BASE + "/health");
@@ -163,13 +174,38 @@
       }
     }
 
-    // ===== Register =====
+    // ===== Register (password strength meter) =====
+    const regPassword = document.getElementById("reg-password");
+    const regStrength = document.getElementById("reg-pass-strength");
+    regPassword.addEventListener("input", () => {
+      const v = regPassword.value;
+      const len = v.length;
+      const hasLower = /[a-z]/.test(v);
+      const hasUpper = /[A-Z]/.test(v);
+      const hasNum = /\d/.test(v);
+      const hasSym = /[^A-Za-z0-9]/.test(v);
+      let score = 0;
+      if(len >= 8) score++;
+      if(len >= 12) score++;
+      if(hasLower && hasUpper) score++;
+      if(hasNum) score++;
+      if(hasSym) score++;
+      const levels = ["Very weak","Weak","Okay","Good","Strong","Very strong"];
+      const cls = score >= 3 ? "ok" : "warn";
+      regStrength.className = "small " + cls;
+      regStrength.textContent = "Strength: " + levels[score] + " — Aim for a long passphrase (e.g., 8+ words).";
+    });
+
     document.getElementById("form-register").addEventListener("submit", async (e)=>{
       e.preventDefault();
+      if(regPassword.value.length < 8){
+        alert("Your password should be at least 8 characters. Consider a long passphrase (e.g., 8+ words).");
+        return;
+      }
       const body = {
         username: document.getElementById("reg-username").value.trim(),
         email: document.getElementById("reg-email").value.trim(),
-        password: document.getElementById("reg-password").value
+        password: regPassword.value
       };
       const res = await fetch(API_BASE + "/register", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
@@ -184,7 +220,7 @@
       }
     });
 
-    // ===== Login =====
+    // ===== Login (show tip; no enforcement) =====
     document.getElementById("form-login").addEventListener("submit", async (e)=>{
       e.preventDefault();
       const body = {
@@ -199,17 +235,37 @@
       if(res.ok && data.token){
         setToken(data.token);
         setAuthUI();
-        navigate("upload");
+        navigate("myfiles");
       } else {
         alert(data.error || "Login failed");
       }
     });
 
-    // ===== Upload =====
+    // ===== Upload (client-side size check + warning) =====
+    const fileInput = document.getElementById("up-file");
+    const fileHint = document.getElementById("file-size-hint");
+
+    function formatSize(bytes){
+      if(bytes >= 1024*1024) return (bytes/(1024*1024)).toFixed(2) + " MB";
+      return (bytes/1024).toFixed(1) + " KB";
+    }
+
+    fileInput.addEventListener("change", () => {
+      const f = fileInput.files[0];
+      if(!f){ fileHint.textContent = ""; return; }
+      const tooBig = f.size > (MAX_FILE_MB * 1024 * 1024);
+      fileHint.className = "small " + (tooBig ? "warn" : "muted");
+      fileHint.textContent = `Selected: ${f.name} — ${formatSize(f.size)}${tooBig ? " (exceeds " + MAX_FILE_MB + " MB limit)" : ""}`;
+    });
+
     document.getElementById("form-upload").addEventListener("submit", async (e)=>{
       e.preventDefault();
-      const f = document.getElementById("up-file").files[0];
+      const f = fileInput.files[0];
       if(!f) return alert("Pick a file.");
+      if(f.size > (MAX_FILE_MB * 1024 * 1024)){
+        alert("File exceeds " + MAX_FILE_MB + " MB. Please choose a smaller file.");
+        return;
+      }
       const privacy = document.getElementById("up-privacy").value;
       const fd = new FormData();
       fd.append("file", f);
@@ -218,11 +274,40 @@
       });
       const data = await res.json().catch(()=>({}));
       document.getElementById("out-upload").textContent = JSON.stringify(data, null, 2);
-      if(res.ok) alert("Uploaded!");
-      else alert(data.error || "Upload failed");
+      if(res.ok){
+        alert("Uploaded!");
+        loadMyFiles();
+      } else {
+        // Server-side size enforcement fallback message
+        if(data && data.error && /too large/i.test(data.error)){
+          alert(data.error);
+        } else {
+          alert(data.error || "Upload failed");
+        }
+      }
     });
 
-    // ===== My Files =====
+    // ===== Public Files (everyone) =====
+    async function loadPublicFiles(){
+      const tb = document.getElementById("tb-files");
+      tb.innerHTML = "";
+      const res = await fetch(API_BASE + "/public-files");
+      const data = await res.json().catch(()=>({ files: [] }));
+      document.getElementById("out-files").textContent = JSON.stringify(data, null, 2);
+      (data.files || []).forEach(f => {
+        const tr = document.createElement("tr");
+        const sizeKB = (f.size/1024).toFixed(1)+" KB";
+        const when = new Date(f.uploaded_at).toLocaleString();
+        tr.innerHTML = `
+          <td>${f.originalName}</td>
+          <td>${sizeKB}</td>
+          <td>${when}</td>
+          <td class="actions"><a href="${API_BASE}/files/${f._id}/download" target="_blank">Download</a></td>`;
+        tb.appendChild(tr);
+      });
+    }
+
+    // ===== My Files (owner only) =====
     async function loadMyFiles(){
       const tb = document.getElementById("tb-myfiles");
       tb.innerHTML = "";
@@ -272,29 +357,9 @@
       }));
     }
 
-    // ===== Downloads =====
-    async function loadDownloads(){
-      const tb = document.getElementById("tb-downloads");
-      tb.innerHTML = "";
-      const res = await fetch(API_BASE + "/public-files");
-      const data = await res.json().catch(()=>({ files: [] }));
-      document.getElementById("out-downloads").textContent = JSON.stringify(data, null, 2);
-      (data.files || []).forEach(f => {
-        const tr = document.createElement("tr");
-        const sizeKB = (f.size/1024).toFixed(1)+" KB";
-        const when = new Date(f.uploaded_at).toLocaleString();
-        tr.innerHTML = `
-          <td>${f.originalName}</td>
-          <td>${sizeKB}</td>
-          <td>${when}</td>
-          <td class="actions"><a href="${API_BASE}/files/${f._id}/download" target="_blank">Download</a></td>`;
-        tb.appendChild(tr);
-      });
-    }
-
     // ===== Init =====
     setAuthUI();
-    navigate("home");
+    navigate("files");   // default to public files
     pingHealth();
   </script>
 </body>
