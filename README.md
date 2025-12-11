@@ -5,8 +5,6 @@ A full-stack project that lets users register, log in, upload PDF/MP4 files (pub
 > Implements the exact functional requirements from the assignment brief (register/login, upload with privacy, public downloads, My Files with delete, database integration, validation, and security checks).
 
 ## Project Structure
-
-```
 secure-file-hosting/
   backend/
     server.js
@@ -16,91 +14,78 @@ secure-file-hosting/
       middleware/auth.js
       models/{User.js, File.js}
       routes/{auth.js, files.js}
-  uploads/               # runtime files stored here
+  uploads/                 # runtime uploaded files
   frontend/
     index.html
-    register.html
-    login.html
-    upload.html
-    my-files.html
-    downloads.html
     styles.css
-    auth.js
-```
+    app.js
 
 ## 1) Prerequisites
-
 - Node.js 18+
-- MongoDB running locally (or replace `MONGO_URI` in `.env` with Atlas/remote)
+- MongoDB running locally (or use Atlas and set MONGO_URI)
 
 ## 2) Setup & Run
 
 ### Backend
-```bash
 cd backend
 cp .env.example .env
-# edit .env to set MONGO_URI and JWT_SECRET if you want
+# edit .env to set MONGO_URI and JWT_SECRET as needed
 
 npm install
-npm run dev   # or: npm start
-```
-Backend will start on `http://localhost:5000`.
+# If you have a dev script using nodemon:
+# npm run dev
+# Otherwise:
+node server.js
 
-### Frontend
-Open these files directly in your browser (double-click or `File -> Open`):
-- `frontend/index.html`
-- `frontend/register.html`
-- `frontend/login.html`
-- `frontend/upload.html`
-- `frontend/my-files.html`
-- `frontend/downloads.html`
+# Backend runs at http://localhost:5000
 
-> CORS is enabled on the backend. The frontend uses `http://localhost:5000/api` by default.
+### Frontend (choose ONE)
+# A) Serve via Express (recommended, one port)
+# Add to backend/server.js:
+#   app.use(express.static(path.join(__dirname, "../frontend")));
+# Then open:
+http://localhost:5000
 
-## 3) Usage Flow (for your demo video)
+# B) Serve as static site
+cd frontend
+npx serve .
+# Open the URL printed (e.g., http://localhost:3000)
 
-1. **Register** a user (Register page)  
-2. **Login** (Login page) → token is saved to browser `localStorage`  
-3. **Upload** a file (Upload page) – choose **Public** or **Private**  
-   - Allowed types: **PDF** and **MP4**  
-   - Max size: **20MB** (configurable via `.env`)  
-4. **My Files** shows your uploads with **Download** and **Delete** buttons  
-   - Private files show a **share link** (copy & send to others)  
-5. **Downloads** lists **public files** for anyone to download  
-6. **Logout** from the nav
+## 3) Usage Flow
+- Register a user (Register section in the single-page UI)
+- Login → JWT stored in localStorage
+- Upload a file (PDF/MP4), choose Public or Private
+- My Files shows your uploads with Download/Delete and Copy link
+- Files lists public files for anyone
+- Use the top share-bar to open a private share link
+- Logout in the nav
 
 ## 4) API Endpoints
-
-- `POST /api/register` — create user (email unique)
-- `POST /api/login` — returns JWT token
-- `POST /api/upload?privacy=public|private` — **auth required**, field name `file`
-- `GET  /api/public-files` — list public files
-- `GET  /api/my-files` — **auth required**, list own files
-- `GET  /api/files/:id/download` — download; public for anyone, private for **owner only** (via token)
-- `GET  /api/files/share/:shareId/download` — download private via **shareable link** (no auth)
-- `DELETE /api/files/:id` — **auth required**, owner only
+POST   /api/register
+POST   /api/login
+POST   /api/upload?privacy=public|private         (auth, field: file)
+GET    /api/public-files
+GET    /api/my-files                              (auth)
+GET    /api/files/:id/download                    (public or owner if private)
+GET    /api/files/share/:shareId/download         (private via share link, no auth)
+DELETE /api/files/:id                             (auth, owner only)
 
 ## 5) Security & Validation
-
-- Passwords **hashed** with bcrypt
-- JWT stored client-side in **localStorage**; sent as `Authorization: Bearer <token>`
-- Multer restricts **MIME types** (`application/pdf`, `video/mp4`) and enforces **20MB** max size
-- Sanitized saved filenames; downloads served with original names
-- Private downloads gated by **owner token** or **shareId** link
-- No sensitive fields returned in responses
+- Passwords hashed with bcrypt
+- JWT in localStorage; send as `Authorization: Bearer <token>`
+- Multer MIME allowlist: application/pdf, video/mp4
+- Max file size: 20MB (env: MAX_FILE_SIZE_MB)
+- Filenames sanitized; downloads stream with original name
+- Private downloads require owner token or share link
+- No sensitive fields in API responses
 
 ## 6) Troubleshooting
-
-- **MongoDB connection error**: Ensure MongoDB is running locally or change `MONGO_URI` in `.env`
-- **Access denied on Windows** when starting MongoDB service: open PowerShell **as Administrator**, or run `mongod` directly
-- **"Unsupported file type"**: only `.pdf` and `.mp4` accepted
-- **413/Limit**: file exceeds `MAX_FILE_SIZE_MB`
+- MongoDB connection error → ensure service is running or update MONGO_URI
+- Windows “Access is denied” starting MongoDB → open PowerShell as Administrator or run `mongod` directly
+- “Unsupported file type” → only PDF and MP4 allowed
+- 413 / size error → file exceeds MAX_FILE_SIZE_MB
+- Share links: copy the link from My Files, or paste a share ID/URL into the top share-bar
 
 ## 7) Notes
-
-- The `uploads` directory is served at `/uploads` for download streaming only; listing must come from DB.
-- You can host the frontend with any static server if preferred (`npx serve frontend`).
-
----
-
-Happy building!
+- `/uploads` is served for download streaming only; listings come from MongoDB.
+- Private files are never shown on the public Files page.
