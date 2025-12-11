@@ -4,61 +4,41 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Secure File Hosting — Single Page</title>
-  <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;margin:0;padding:0;background:#0b1220;color:#e7ecf3}
-    header,footer{padding:16px 24px;background:#0f172a;color:#e7ecf3}
-    main{max-width:1000px;margin:24px auto;padding:0 16px}
-    .card{background:#111827;border:1px solid #1f2937;border-radius:16px;padding:16px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,.2)}
-    h1{font-size:28px;margin:0 0 8px}
-    h2{font-size:22px;margin:4px 0 12px}
-    label{display:block;margin:8px 0 4px}
-    input,select,button{padding:10px 12px;border-radius:10px;border:1px solid #374151;background:#0b1220;color:#e7ecf3}
-    button{cursor:pointer}
-    nav a, nav button{margin-right:12px}
-    a{color:#93c5fd;text-decoration:none}
-    a:hover{text-decoration:underline}
-    .small{opacity:.8;font-size:12px}
-    .muted{opacity:.7}
-    .warn{color:#fca5a5}
-    .ok{color:#86efac}
-    .row{display:flex;gap:12px;flex-wrap:wrap}
-    .table{width:100%;border-collapse:collapse}
-    .table th,.table td{border-bottom:1px solid #1f2937;padding:10px;text-align:left}
-    .badge{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #374151;font-size:12px}
-    .badge.public{background:#003b2b;border-color:#065f46}
-    .badge.private{background:#3b0c0c;border-color:#7f1d1d}
-    .hidden{display:none !important}
-    .right{float:right}
-    .mt-2{margin-top:8px}
-    .mt-4{margin-top:16px}
-    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
-  </style>
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <header>
-    <nav>
-      <button onclick="navigate('home')">Home</button>
-      <button onclick="navigate('files')">Files</button> <!-- public listing for everyone -->
-      <button onclick="navigate('register')">Register</button>
-      <button onclick="navigate('login')" id="nav-login">Login</button>
-      <button onclick="navigate('upload')" id="nav-upload" class="hidden">Upload</button>
-      <button onclick="navigate('myfiles')" id="nav-myfiles" class="hidden">My Files</button>
-      <button class="right hidden" id="nav-logout" onclick="logout()">Logout</button>
-    </nav>
+    <div class="row-center">
+      <nav class="row-center" style="flex:1 1 auto">
+        <button onclick="navigate('home')">Home</button>
+        <button onclick="navigate('files')">Files</button>
+        <button onclick="navigate('register')">Register</button>
+        <button onclick="navigate('login')" id="nav-login">Login</button>
+        <button onclick="navigate('upload')" id="nav-upload" class="hidden">Upload</button>
+        <button onclick="navigate('myfiles')" id="nav-myfiles" class="hidden">My Files</button>
+        <button onclick="logout()" id="nav-logout" class="hidden">Logout</button>
+      </nav>
+
+      <!-- Share-link search bar -->
+      <form id="share-form" class="row-center right" onsubmit="openShare(event)">
+        <input id="share-input" class="pill" placeholder="Paste share link or share ID" size="36" />
+        <button type="submit">Open</button>
+      </form>
+    </div>
   </header>
 
   <main>
     <!-- Home -->
     <section id="view-home" class="card">
       <h1>Secure File Hosting</h1>
-      <p>Implements access control exactly as required:</p>
+      <p>Paste a <b>share link or share ID</b> into the top-right box and press <b>Open</b> to download private files via link.</p>
       <ul class="small">
-        <li><b>Files</b>: Shows <u>public files</u> for everyone; anyone can download.</li>
-        <li><b>My Files</b>: Shows <u>only your uploads</u> after login; you can Download/Delete.</li>
-        <li>Private files are never listed publicly; they are accessible via a unique share link.</li>
-        <li>Backend API: <span class="mono">http://localhost:5000</span></li>
+        <li><b>Files</b> shows <u>public files</u> for everyone.</li>
+        <li><b>My Files</b> shows only your uploads (after login) with Download/Delete.</li>
+        <li>Private files are never listed publicly; they’re accessible via a unique share link.</li>
       </ul>
       <div id="health" class="small mono"></div>
+      <div id="share-status" class="small mono mt-2"></div>
     </section>
 
     <!-- Files (Public Listing) -->
@@ -78,7 +58,7 @@
         <label>Username</label><input id="reg-username" required />
         <label>Email</label><input id="reg-email" type="email" required />
         <label>Password</label><input id="reg-password" type="password" minlength="8" required />
-        <div class="small muted" id="reg-pass-hint">Tip: Use a <b>long passphrase</b> (e.g., <b>8+ words</b>) with mixed case, numbers, and symbols.</div>
+        <div class="small muted" id="reg-pass-hint">Tip: Use a long passphrase (e.g., <b>8+ words</b>) with mixed case, numbers, and symbols.</div>
         <div class="small" id="reg-pass-strength"></div>
         <div class="row mt-2"><button type="submit">Register</button></div>
       </form>
@@ -91,7 +71,7 @@
       <form id="form-login">
         <label>Email</label><input id="login-email" type="email" required />
         <label>Password</label><input id="login-password" type="password" required />
-        <div class="small muted">Tip: For better security, use a <b>long passphrase</b> (e.g., <b>8+ words</b>). If your password is weak, consider updating it later.</div>
+        <div class="small muted">Tip: Use a <b>long passphrase</b> (e.g., 8+ words). If your password is weak, update it later.</div>
         <div class="row mt-2"><button type="submit">Login</button></div>
       </form>
       <pre id="out-login" class="small mono mt-2"></pre>
@@ -129,238 +109,6 @@
 
   <footer><span class="small">&copy; Demo</span></footer>
 
-  <script>
-    // ===== Config & token helpers =====
-    const API_BASE = "http://localhost:5000/api";
-    const TOKEN_KEY = "sfh_token";
-    const MAX_FILE_MB = 20; // mirror server default; change if .env differs
-    document.getElementById("max-mb").textContent = MAX_FILE_MB;
-    const getToken = () => localStorage.getItem(TOKEN_KEY);
-    const setToken = (t) => localStorage.setItem(TOKEN_KEY, t);
-    const clearToken = () => localStorage.removeItem(TOKEN_KEY);
-    const authHeader = () => (getToken() ? { "Authorization": "Bearer " + getToken() } : {});
-
-    // ===== Navigation & UI auth state =====
-    function setAuthUI(){
-      const loggedIn = !!getToken();
-      document.getElementById("nav-login").classList.toggle("hidden", loggedIn);
-      document.getElementById("nav-upload").classList.toggle("hidden", !loggedIn);
-      document.getElementById("nav-myfiles").classList.toggle("hidden", !loggedIn);
-      document.getElementById("nav-logout").classList.toggle("hidden", !loggedIn);
-    }
-
-    function navigate(view){
-      document.querySelectorAll("main section").forEach(s => s.classList.add("hidden"));
-      document.getElementById("view-" + view).classList.remove("hidden");
-      if(view === "myfiles") loadMyFiles();
-      if(view === "files") loadPublicFiles();
-      if(view === "home") pingHealth();
-    }
-
-    function logout(){
-      clearToken();
-      setAuthUI();
-      navigate("home");
-    }
-
-    // ===== Health =====
-    async function pingHealth(){
-      try{
-        const r = await fetch(API_BASE + "/health");
-        const d = await r.json();
-        document.getElementById("health").textContent = JSON.stringify(d, null, 2);
-      }catch(e){
-        document.getElementById("health").textContent = "Cannot reach backend at " + API_BASE;
-      }
-    }
-
-    // ===== Register (password strength meter) =====
-    const regPassword = document.getElementById("reg-password");
-    const regStrength = document.getElementById("reg-pass-strength");
-    regPassword.addEventListener("input", () => {
-      const v = regPassword.value;
-      const len = v.length;
-      const hasLower = /[a-z]/.test(v);
-      const hasUpper = /[A-Z]/.test(v);
-      const hasNum = /\d/.test(v);
-      const hasSym = /[^A-Za-z0-9]/.test(v);
-      let score = 0;
-      if(len >= 8) score++;
-      if(len >= 12) score++;
-      if(hasLower && hasUpper) score++;
-      if(hasNum) score++;
-      if(hasSym) score++;
-      const levels = ["Very weak","Weak","Okay","Good","Strong","Very strong"];
-      const cls = score >= 3 ? "ok" : "warn";
-      regStrength.className = "small " + cls;
-      regStrength.textContent = "Strength: " + levels[score] + " — Aim for a long passphrase (e.g., 8+ words).";
-    });
-
-    document.getElementById("form-register").addEventListener("submit", async (e)=>{
-      e.preventDefault();
-      if(regPassword.value.length < 8){
-        alert("Your password should be at least 8 characters. Consider a long passphrase (e.g., 8+ words).");
-        return;
-      }
-      const body = {
-        username: document.getElementById("reg-username").value.trim(),
-        email: document.getElementById("reg-email").value.trim(),
-        password: regPassword.value
-      };
-      const res = await fetch(API_BASE + "/register", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
-      });
-      const data = await res.json().catch(()=>({}));
-      document.getElementById("out-register").textContent = JSON.stringify(data, null, 2);
-      if(res.ok){
-        alert("Registered! Please login.");
-        navigate("login");
-      }else{
-        alert(data.error || "Registration failed");
-      }
-    });
-
-    // ===== Login (show tip; no enforcement) =====
-    document.getElementById("form-login").addEventListener("submit", async (e)=>{
-      e.preventDefault();
-      const body = {
-        email: document.getElementById("login-email").value.trim(),
-        password: document.getElementById("login-password").value
-      };
-      const res = await fetch(API_BASE + "/login", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
-      });
-      const data = await res.json().catch(()=>({}));
-      document.getElementById("out-login").textContent = JSON.stringify(data, null, 2);
-      if(res.ok && data.token){
-        setToken(data.token);
-        setAuthUI();
-        navigate("myfiles");
-      } else {
-        alert(data.error || "Login failed");
-      }
-    });
-
-    // ===== Upload (client-side size check + warning) =====
-    const fileInput = document.getElementById("up-file");
-    const fileHint = document.getElementById("file-size-hint");
-
-    function formatSize(bytes){
-      if(bytes >= 1024*1024) return (bytes/(1024*1024)).toFixed(2) + " MB";
-      return (bytes/1024).toFixed(1) + " KB";
-    }
-
-    fileInput.addEventListener("change", () => {
-      const f = fileInput.files[0];
-      if(!f){ fileHint.textContent = ""; return; }
-      const tooBig = f.size > (MAX_FILE_MB * 1024 * 1024);
-      fileHint.className = "small " + (tooBig ? "warn" : "muted");
-      fileHint.textContent = `Selected: ${f.name} — ${formatSize(f.size)}${tooBig ? " (exceeds " + MAX_FILE_MB + " MB limit)" : ""}`;
-    });
-
-    document.getElementById("form-upload").addEventListener("submit", async (e)=>{
-      e.preventDefault();
-      const f = fileInput.files[0];
-      if(!f) return alert("Pick a file.");
-      if(f.size > (MAX_FILE_MB * 1024 * 1024)){
-        alert("File exceeds " + MAX_FILE_MB + " MB. Please choose a smaller file.");
-        return;
-      }
-      const privacy = document.getElementById("up-privacy").value;
-      const fd = new FormData();
-      fd.append("file", f);
-      const res = await fetch(API_BASE + "/upload?privacy=" + encodeURIComponent(privacy), {
-        method: "POST", headers: { ...authHeader() }, body: fd
-      });
-      const data = await res.json().catch(()=>({}));
-      document.getElementById("out-upload").textContent = JSON.stringify(data, null, 2);
-      if(res.ok){
-        alert("Uploaded!");
-        loadMyFiles();
-      } else {
-        // Server-side size enforcement fallback message
-        if(data && data.error && /too large/i.test(data.error)){
-          alert(data.error);
-        } else {
-          alert(data.error || "Upload failed");
-        }
-      }
-    });
-
-    // ===== Public Files (everyone) =====
-    async function loadPublicFiles(){
-      const tb = document.getElementById("tb-files");
-      tb.innerHTML = "";
-      const res = await fetch(API_BASE + "/public-files");
-      const data = await res.json().catch(()=>({ files: [] }));
-      document.getElementById("out-files").textContent = JSON.stringify(data, null, 2);
-      (data.files || []).forEach(f => {
-        const tr = document.createElement("tr");
-        const sizeKB = (f.size/1024).toFixed(1)+" KB";
-        const when = new Date(f.uploaded_at).toLocaleString();
-        tr.innerHTML = `
-          <td>${f.originalName}</td>
-          <td>${sizeKB}</td>
-          <td>${when}</td>
-          <td class="actions"><a href="${API_BASE}/files/${f._id}/download" target="_blank">Download</a></td>`;
-        tb.appendChild(tr);
-      });
-    }
-
-    // ===== My Files (owner only) =====
-    async function loadMyFiles(){
-      const tb = document.getElementById("tb-myfiles");
-      tb.innerHTML = "";
-      const res = await fetch(API_BASE + "/my-files", { headers: { ...authHeader() } });
-      const data = await res.json().catch(()=>({ files: [] }));
-      document.getElementById("out-myfiles").textContent = JSON.stringify(data, null, 2);
-      (data.files || []).forEach(f => {
-        const tr = document.createElement("tr");
-        const sizeKB = (f.size/1024).toFixed(1)+" KB";
-        const when = new Date(f.uploaded_at).toLocaleString();
-        const share = f.shareLink ? '<a href="' + API_BASE + f.shareLink + '" target="_blank">copy link</a>' : "-";
-        tr.innerHTML = `
-          <td>${f.originalName}</td>
-          <td>${sizeKB}</td>
-          <td><span class="badge ${f.privacy}">${f.privacy}</span></td>
-          <td>${when}</td>
-          <td>${share}</td>
-          <td class="actions">
-            <button data-id="${f.id}" class="dl">Download</button>
-            <button data-id="${f.id}" class="rm">Delete</button>
-          </td>`;
-        tb.appendChild(tr);
-      });
-
-      // Bind actions
-      document.querySelectorAll(".dl").forEach(btn => btn.addEventListener("click", async (e)=>{
-        const id = e.target.getAttribute("data-id");
-        const res = await fetch(API_BASE + "/files/" + id + "/download", { headers: { ...authHeader() } });
-        if(!res.ok){ const d = await res.json().catch(()=>({})); return alert(d.error||"Download blocked"); }
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-      }));
-
-      document.querySelectorAll(".rm").forEach(btn => btn.addEventListener("click", async (e)=>{
-        const id = e.target.getAttribute("data-id");
-        if(!confirm("Delete this file?")) return;
-        const res = await fetch(API_BASE + "/files/" + id, { method:"DELETE", headers: { ...authHeader() } });
-        const d = await res.json().catch(()=>({}));
-        if(res.ok){ loadMyFiles(); } else { alert(d.error||"Delete failed"); }
-      }));
-    }
-
-    // ===== Init =====
-    setAuthUI();
-    navigate("files");   // default to public files
-    pingHealth();
-  </script>
+  <script defer src="./app.js"></script>
 </body>
 </html>
